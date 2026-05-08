@@ -1,19 +1,22 @@
 [build]
+  command = "echo 'No build needed'"
   publish = "apps/web"
 
 [build.environment]
   NODE_VERSION = "20"
 
-# API_BASE is set in the web app — update this if API is deployed elsewhere
-# For local dev: API runs on :3001
-# For production: update the redirect to your API server URL
+[functions]
+  directory = "apps/api/netlify"
+  node_bundler = "esbuild"
+
+# Proxy API calls to Netlify functions
 [[redirects]]
   from = "/api/*"
-  to = ":3001/api/*"
+  to = "/.netlify/functions/runway-proxy"
   status = 200
   force = true
 
-# SPA fallback for client-side routing
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
