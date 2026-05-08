@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ViralForge — AI Video Content Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: '#FF4D00' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    .tab-active { border-bottom: 2px solid #FF4D00; color: #FF4D00; }
+    .tab-btn { border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn:hover { border-bottom-color: #FF4D00; }
+    video { max-width: 100%; border: 1px solid #e5e7eb; }
+    .job-status { font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-processing { background: #dbeafe; color: #1e40af; }
+    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-failed { background: #fee2e2; color: #991b1b; }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-white text-gray-900 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-gray-200 px-6 py-4 sticky top-0 bg-white z-10">
+    <div class="max-w-5xl mx-auto flex items-center justify-between flex-wrap gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-[#FF4D00]">ViralForge</h1>
+        <p class="text-xs text-gray-500 mt-0.5">AI Video Content Generator</p>
+      </div>
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="text-right">
+          <div class="text-xs text-gray-500">Credits</div>
+          <div id="creditsDisplay" class="text-lg font-semibold">—</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-500">Runway API Key</div>
+          <input id="apiKeyInput" type="password" placeholder="sk-..." class="text-sm font-mono border border-gray-300 rounded px-2 py-1 w-44" />
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="max-w-5xl mx-auto px-6 pt-6">
+    <nav class="flex gap-6 border-b border-gray-200 overflow-x-auto" id="tabNav">
+      <button class="tab-btn tab-active pb-3 text-sm font-semibold whitespace-nowrap" data-tab="hooks">Hooks Generator</button>
+      <button class="tab-btn pb-3 text-sm font-semibold text-gray-500 whitespace-nowrap" data-tab="abtest">A/B Testing</button>
+      <button class="tab-btn pb-3 text-sm font-semibold text-gray-500 whitespace-nowrap" data-tab="product">Product Video</button>
+      <button class="tab-btn pb-3 text-sm font-semibold text-gray-500 whitespace-nowrap" data-tab="voiceover">Voiceover</button>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- HOOKS GENERATOR -->
+    <section id="section-hooks" class="tab-section">
+      <h2 class="text-xl font-bold mb-1">Hooks Generator</h2>
+      <p class="text-sm text-gray-500 mb-6">Enter a topic or prompt. We'll generate short viral hooks (5s, 720p, gen4.5).</p>
+      <div class="border border-gray-200 rounded p-6 space-y-4 max-w-2xl">
+        <div>
+          <label class="block text-sm font-medium mb-1">Topic / Prompt <span class="text-red-500">*</span></label>
+          <textarea id="hooksPrompt" rows="3" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="e.g. Epic mountain sunrise with dramatic clouds..."></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Reference Image URL <span class="text-gray-400">(optional)</span></label>
+          <input id="hooksImageUrl" type="url" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="https://..." />
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm font-medium">Count:</label>
+          <select id="hooksCount" class="border border-gray-300 rounded px-2 py-1 text-sm">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <button onclick="generateHooks()" id="hooksBtn" class="bg-[#FF4D00] text-white font-semibold px-6 py-2 rounded hover:opacity-90 transition flex items-center gap-2">
+          <span>Generate Hooks</span>
+        </button>
+      </div>
+      <div id="hooksResults" class="mt-8 space-y-4"></div>
+    </section>
+
+    <!-- A/B TESTING -->
+    <section id="section-abtest" class="tab-section hidden">
+      <h2 class="text-xl font-bold mb-1">A/B Test Video Variants</h2>
+      <p class="text-sm text-gray-500 mb-6">Enter a concept. We'll generate multiple variants with different hooks and cuts.</p>
+      <div class="border border-gray-200 rounded p-6 space-y-4 max-w-2xl">
+        <div>
+          <label class="block text-sm font-medium mb-1">Concept <span class="text-red-500">*</span></label>
+          <textarea id="abtestConcept" rows="3" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="e.g. A fitness transformation from lazy to athletic..."></textarea>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm font-medium">Variants:</label>
+          <select id="abtestCount" class="border border-gray-300 rounded px-2 py-1 text-sm">
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+        <button onclick="generateABTest()" id="abtestBtn" class="bg-[#FF4D00] text-white font-semibold px-6 py-2 rounded hover:opacity-90 transition flex items-center gap-2">
+          <span>Generate A/B Variants</span>
+        </button>
+      </div>
+      <div id="abtestResults" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- PRODUCT VIDEO -->
+    <section id="section-product" class="tab-section hidden">
+      <h2 class="text-xl font-bold mb-1">Product Showcase Video</h2>
+      <p class="text-sm text-gray-500 mb-6">Enter a product image to generate a cinematic promo video.</p>
+      <div class="border border-gray-200 rounded p-6 space-y-4 max-w-2xl">
+        <div>
+          <label class="block text-sm font-medium mb-1">Product Image URL <span class="text-red-500">*</span></label>
+          <input id="productImageUrl" type="url" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="https://..." />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Product Name</label>
+          <input id="productName" type="text" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="My Awesome Product" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Tagline</label>
+          <input id="productTagline" type="text" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="The best thing since sliced bread" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Brand Color <span class="text-gray-400">(hex)</span></label>
+          <div class="flex gap-2">
+            <input id="brandColor" type="text" value="#FF4D00" class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm font-mono" placeholder="#FF4D00" />
+            <input id="brandColorPicker" type="color" value="#FF4D00" class="w-10 h-10 rounded cursor-pointer border border-gray-300" onchange="document.getElementById('brandColor').value=this.value" />
+          </div>
+        </div>
+        <button onclick="generateProductVideo()" id="productBtn" class="bg-[#FF4D00] text-white font-semibold px-6 py-2 rounded hover:opacity-90 transition flex items-center gap-2">
+          <span>Generate Product Video</span>
+        </button>
+      </div>
+      <div id="productResults" class="mt-8"></div>
+    </section>
+
+    <!-- VOICEOVER -->
+    <section id="section-voiceover" class="tab-section hidden">
+      <h2 class="text-xl font-bold mb-1">TTS Voiceover</h2>
+      <p class="text-sm text-gray-500 mb-6">Enter a script and generate a voiceover using ElevenLabs multilingual v2.</p>
+      <div class="border border-gray-200 rounded p-6 space-y-4 max-w-2xl">
+        <div>
+          <label class="block text-sm font-medium mb-1">Script <span class="text-red-500">*</span></label>
+          <textarea id="voiceoverScript" rows="5" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Welcome to my channel! Today we're exploring..."></textarea>
+        </div>
+        <div class="text-xs text-gray-400 text-right" id="scriptLen">0 / 500 chars</div>
+        <button onclick="generateVoiceover()" id="voiceoverBtn" class="bg-[#FF4D00] text-white font-semibold px-6 py-2 rounded hover:opacity-90 transition flex items-center gap-2">
+          <span>Generate Voiceover</span>
+        </button>
+      </div>
+      <div id="voiceoverResults" class="mt-8"></div>
+    </section>
+
+  </main>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCF2WrTRiAv8wbJJ1tTGJJtZa_Hana8EqM",
+      authDomain: "photo-beemm.firebaseapp.com",
+      projectId: "photo-beemm",
+      storageBucket: "photo-beemm.firebasestorage.app",
+      messagingSenderId: "448272063932",
+      appId: "1:448272063932:web:477064b04985b9ee785fb9",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ---- STATE ----
+    const API_BASE = window.location.origin.replace(':3000', ':3001');
+    let activeListeners = {};
+
+    // ---- UTILS ----
+    function statusBadge(status) {
+      const map = {
+        pending: ['status-pending', 'Pending'],
+        processing: ['status-processing', 'Processing'],
+        completed: ['status-completed', 'Completed'],
+        failed: ['status-failed', 'Failed'],
+      };
+      const [cls, label] = map[status] || ['status-pending', status];
+      return `<span class="job-status ${cls}">${label}</span>`;
+    }
+
+    function renderVideoCard(outputUrl, label) {
+      return `
+        <video src="${outputUrl}" controls class="w-full max-w-md rounded"></video>
+        <a href="${outputUrl}" download class="inline-block mt-2 text-sm text-[#FF4D00] font-semibold">Download video</a>
+      `;
+    }
+
+    function renderAudioCard(outputUrl) {
+      return `
+        <audio src="${outputUrl}" controls class="w-full max-w-md"></audio>
+        <a href="${outputUrl}" download class="inline-block mt-2 text-sm text-[#FF4D00] font-semibold">Download audio</a>
+      `;
+    }
+
+    function renderErrorCard(error) {
+      return `<div class="text-red-600 p-4 border border-red-200 rounded bg-red-50 text-sm">${error}</div>`;
+    }
+
+    function makeSpinner() {
+      return '<span class="spinner"></span>';
+    }
+
+    function makeLabeledCard(label, badge, content) {
+      return `
+        <div class="border border-gray-200 rounded p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-semibold text-sm">${label}</span>
+            <span class="status-area">${badge}</span>
+          </div>
+          <div class="job-content">${content}</div>
+        </div>
+      `;
+    }
+
+    // ---- FIRESTORE REAL-TIME LISTENING ----
+    function subscribeToJob(jobId, containerId, { renderContent, renderDone }) {
+      // Unsubscribe if already listening
+      if (activeListeners[jobId]) {
+        activeListeners[jobId]();
+        delete activeListeners[jobId];
+      }
+
+      const docRef = doc(db, 'viral_jobs', jobId);
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (!snap.exists) return;
+        const data = snap.data();
+        const el = document.getElementById(containerId);
+        if (!el) { unsub(); delete activeListeners[jobId]; return; }
+
+        const status = data.status;
+        const area = el.querySelector('.status-area');
+        const content = el.querySelector('.job-content');
+
+        if (status === 'pending' || status === 'processing') {
+          if (area) area.innerHTML = statusBadge(status);
+          if (content) content.innerHTML = makeSpinner() + ' Generating...';
+        } else if (status === 'completed') {
+          if (area) area.innerHTML = statusBadge(status);
+          if (content) content.innerHTML = renderContent(data.outputUrl);
+          unsub();
+          delete activeListeners[jobId];
+        } else if (status === 'failed') {
+          if (area) area.innerHTML = statusBadge(status);
+          if (content) content.innerHTML = renderErrorCard(data.error || 'Unknown error');
+          unsub();
+          delete activeListeners[jobId];
+        }
+      }, (err) => {
+        console.error('Firestore listener error for', jobId, err);
+      });
+
+      activeListeners[jobId] = unsub;
+      return unsub;
+    }
+
+    // Expose globally
+    window.subscribeToJob = subscribeToJob;
+    window.statusBadge = statusBadge;
+    window.renderVideoCard = renderVideoCard;
+    window.renderAudioCard = renderAudioCard;
+    window.renderErrorCard = renderErrorCard;
+    window.makeSpinner = makeSpinner;
+    window.makeLabeledCard = makeLabeledCard;
+    window.db = db;
+  </script>
+
+  <script>
+    // ---- GLOBAL STATE ----
+    let apiKey = localStorage.getItem('VIRALFORGE_API_KEY') || '';
+
+    // ---- HELPERS ----
+    function getApiKey() {
+      return document.getElementById('apiKeyInput').value.trim() || apiKey;
+    }
+
+    function getUserId() {
+      return 'user_' + (localStorage.getItem('VIRALFORGE_USER_ID') || Math.random().toString(36).slice(2, 10));
+    }
+
+    function setLoading(btn, loading) {
+      if (!btn) return;
+      if (loading) {
+        btn.disabled = true;
+        btn.dataset.label = btn.querySelector('span')?.textContent || btn.textContent;
+        btn.innerHTML = '<span class="spinner"></span> Generating...';
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<span>' + (btn.dataset.label || 'Generate') + '</span>';
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
+      }
+    }
+
+    function makeJobCard(jobId, label, status) {
+      const badge = window.statusBadge(status);
+      return window.makeLabeledCard(label, badge, window.makeSpinner() + ' Generating...');
+    }
+
+    function addResult(containerId, jobId, label, status = 'pending') {
+      const container = document.getElementById(containerId);
+      const card = document.createElement('div');
+      card.id = 'job-' + jobId;
+      card.className = containerId === 'abtestResults' ? 'border border-gray-200 rounded p-4' : 'border border-gray-200 rounded p-4 mt-4';
+      card.innerHTML = window.makeLabeledCard(label, window.statusBadge(status), window.makeSpinner() + ' Generating...');
+      container.appendChild(card);
+      return card.id;
+    }
+
+    // ---- CREDITS ----
+    async function refreshCredits() {
+      const key = getApiKey();
+      const display = document.getElementById('creditsDisplay');
+      if (!key) { display.textContent = '—'; return; }
+      try {
+        const res = await fetch(API_BASE + '/api/credits?apiKey=' + encodeURIComponent(key));
+        if (res.ok) {
+          const data = await res.json();
+          display.textContent = typeof data.credits === 'number' ? data.credits : '—';
+        }
+      } catch {
+        display.textContent = '—';
+      }
+    }
+
+    // ---- HOOKS ----
+    async function generateHooks() {
+      const prompt = document.getElementById('hooksPrompt').value.trim();
+      if (!prompt) { alert('Enter a prompt'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Enter your Runway API key'); return; }
+      const imageUrl = document.getElementById('hooksImageUrl').value.trim();
+      const count = parseInt(document.getElementById('hooksCount').value) || 3;
+
+      const btn = document.getElementById('hooksBtn');
+      setLoading(btn, true);
+      apiKey = key;
+      localStorage.setItem('VIRALFORGE_API_KEY', key);
+      localStorage.setItem('VIRALFORGE_USER_ID', getUserId());
+
+      try {
+        const res = await fetch(API_BASE + '/api/generate/hooks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, imageUrl: imageUrl || undefined, count, userId: getUserId(), apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Error generating hooks'); return; }
+
+        const results = document.getElementById('hooksResults');
+        data.jobIds.forEach((id, i) => {
+          const cardId = addResult('hooksResults', id, `Hook ${i + 1}`);
+          window.subscribeToJob(id, cardId, {
+            renderContent: (url) => window.renderVideoCard(url, `Hook ${i + 1}`),
+          });
+        });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // ---- A/B TEST ----
+    async function generateABTest() {
+      const concept = document.getElementById('abtestConcept').value.trim();
+      if (!concept) { alert('Enter a concept'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Enter your Runway API key'); return; }
+      const count = parseInt(document.getElementById('abtestCount').value) || 5;
+
+      const btn = document.getElementById('abtestBtn');
+      setLoading(btn, true);
+      apiKey = key;
+      localStorage.setItem('VIRALFORGE_API_KEY', key);
+      localStorage.setItem('VIRALFORGE_USER_ID', getUserId());
+
+      try {
+        const res = await fetch(API_BASE + '/api/generate/ab-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ concept, count, userId: getUserId(), apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Error generating A/B variants'); return; }
+
+        const results = document.getElementById('abtestResults');
+        results.innerHTML = '';
+        data.jobIds.forEach((id, i) => {
+          const cardId = 'job-' + id;
+          const card = document.createElement('div');
+          card.id = cardId;
+          card.className = 'border border-gray-200 rounded p-4';
+          card.innerHTML = window.makeLabeledCard(`Variant ${i + 1}`, window.statusBadge('pending'), window.makeSpinner() + ' Generating...');
+          results.appendChild(card);
+          window.subscribeToJob(id, cardId, {
+            renderContent: (url) => window.renderVideoCard(url, `Variant ${i + 1}`),
+          });
+        });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // ---- PRODUCT VIDEO ----
+    async function generateProductVideo() {
+      const imageUrl = document.getElementById('productImageUrl').value.trim();
+      if (!imageUrl) { alert('Enter a product image URL'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Enter your Runway API key'); return; }
+      const productName = document.getElementById('productName').value.trim();
+      const tagline = document.getElementById('productTagline').value.trim();
+      const brandColor = document.getElementById('brandColor').value;
+
+      const btn = document.getElementById('productBtn');
+      setLoading(btn, true);
+      apiKey = key;
+      localStorage.setItem('VIRALFORGE_API_KEY', key);
+      localStorage.setItem('VIRALFORGE_USER_ID', getUserId());
+
+      try {
+        const res = await fetch(API_BASE + '/api/generate/product-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, productName, tagline, brandColor, userId: getUserId(), apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Error generating product video'); return; }
+
+        const cardId = addResult('productResults', data.jobId, productName || 'Product Video');
+        window.subscribeToJob(data.jobId, cardId, {
+          renderContent: (url) => window.renderVideoCard(url, productName || 'Product Video'),
+        });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // ---- VOICEOVER ----
+    async function generateVoiceover() {
+      const script = document.getElementById('voiceoverScript').value.trim();
+      if (!script) { alert('Enter a script'); return; }
+      const key = getApiKey();
+      if (!key) { alert('Enter your Runway API key'); return; }
+
+      const btn = document.getElementById('voiceoverBtn');
+      setLoading(btn, true);
+      apiKey = key;
+      localStorage.setItem('VIRALFORGE_API_KEY', key);
+      localStorage.setItem('VIRALFORGE_USER_ID', getUserId());
+
+      try {
+        const res = await fetch(API_BASE + '/api/generate/voiceover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script, userId: getUserId(), apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Error generating voiceover'); return; }
+
+        const cardId = addResult('voiceoverResults', data.jobId, 'Voiceover');
+        window.subscribeToJob(data.jobId, cardId, {
+          renderContent: (url) => window.renderAudioCard(url),
+        });
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // ---- TAB NAV ----
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('tab-active');
+          b.classList.add('text-gray-500');
+        });
+        btn.classList.add('tab-active');
+        btn.classList.remove('text-gray-500');
+        document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('section-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // ---- INIT ----
+    document.getElementById('apiKeyInput').value = localStorage.getItem('VIRALFORGE_API_KEY') || '';
+    document.getElementById('apiKeyInput').addEventListener('change', () => {
+      const val = document.getElementById('apiKeyInput').value.trim();
+      localStorage.setItem('VIRALFORGE_API_KEY', val);
+      apiKey = val;
+      if (val) refreshCredits();
+    });
+
+    document.getElementById('voiceoverScript').addEventListener('input', function () {
+      const len = this.value.length;
+      document.getElementById('scriptLen').textContent = len + ' / 500 chars';
+      document.getElementById('scriptLen').className = 'text-xs text-right ' + (len > 500 ? 'text-red-500' : 'text-gray-400');
+    });
+
+    // Load credits on start if API key is set
+    if (apiKey) refreshCredits();
+  </script>
+</body>
+</html>

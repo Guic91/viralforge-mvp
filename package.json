@@ -1,0 +1,16 @@
+{
+  "name": "viralforge",
+  "version": "1.0.0",
+  "description": "AI video viral content generator",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/worker"
+  ],
+  "scripts": {
+    "install:api": "cd apps/api && npm install",
+    "install:worker": "cd apps/worker && npm install",
+    "deploy:api": "cd apps/api && npm run start",
+    "deploy:worker": "cd apps/worker && npm run start"
+  }
+}

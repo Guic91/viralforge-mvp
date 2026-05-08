@@ -1,0 +1,16 @@
+{
+  "name": "viralforge-api",
+  "version": "1.0.0",
+  "description": "ViralForge API — Runway proxy + Firestore job management",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "fastify": "^4.28.0",
+    "@fastify/cors": "^9.0.0",
+    "firebase-admin": "^12.0.0",
+    "@runwayml/sdk": "^1.0.0"
+  }
+}
