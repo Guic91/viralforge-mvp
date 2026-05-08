@@ -2,21 +2,16 @@
   command = "echo 'No build needed'"
   publish = "apps/web"
 
-[build.environment]
-  NODE_VERSION = "20"
-
 [functions]
   directory = "apps/api/netlify"
   node_bundler = "esbuild"
 
-# Proxy API calls to Netlify functions
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/runway-proxy"
+  to = "/.netlify/functions/:splat"
   status = 200
   force = true
 
-# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
