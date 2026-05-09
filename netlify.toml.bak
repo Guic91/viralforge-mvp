@@ -2,21 +2,16 @@
   command = "echo 'No build needed'"
   publish = "apps/web"
 
-[build.environment]
-  NODE_VERSION = "20"
-
 [functions]
   directory = "apps/api/netlify"
   node_bundler = "esbuild"
 
-# Proxy API calls to the ViralForge API backend
 [[redirects]]
   from = "/api/*"
-  to = "http://okfq4unrwlwzjplqr6zldmim.145.223.34.99.sslip.io/api/:splat"
+  to = "/.netlify/functions/:splat"
   status = 200
   force = true
 
-# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"

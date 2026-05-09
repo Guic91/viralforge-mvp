@@ -1,0 +1,9 @@
+[phases.setup]
+nixpacks = ["nodejs-20"]
+
+[phases.build]
+nixpacks = ["node"]
+
+[start]
+cmd = "node src/index.js"
+port = 3000
