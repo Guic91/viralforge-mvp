@@ -6,4 +6,4 @@ nixpacks = ["node"]
 
 [start]
 cmd = "node src/index.js"
-port = 3000
+port = 3001
