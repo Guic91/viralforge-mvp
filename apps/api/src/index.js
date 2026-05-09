@@ -95,9 +95,13 @@ fastify.get('/api/credits', async (req, reply) => {
   if (!apiKey) return reply.status(400).send({ error: 'apiKey required' });
   try {
     const { RunwayML } = require('@runwayml/sdk');
-    const runway = new RunwayML({ apiKey });
-    const org = await runway.organizations.get('');
-    return { credits: org.creditsRemaining ?? 0 };
+    const runway = new RunwayML({ 
+      apiKey,
+      baseURL: 'https://api.dev.runwayml.com',
+      runwayVersion: '2024-11-06',
+    });
+    const org = await runway.organization.retrieve();
+    return { credits: org.creditBalance ?? 0 };
   } catch (e) {
     fastify.log.error(e);
     return { credits: 0, error: e.message };

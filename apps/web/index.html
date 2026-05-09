@@ -49,7 +49,8 @@
         </div>
         <div class="text-right">
           <div class="text-xs text-gray-500">Runway API Key</div>
-          <input id="apiKeyInput" type="password" placeholder="sk-..." class="text-sm font-mono border border-gray-300 rounded px-2 py-1 w-44" />
+          <input id="apiKeyInput" type="password" placeholder="sk-..." value="key_89d9ed5ca38ab7e2fc68300ec1239d3b72490674cf7b7ca22a8e0914980ba3d4911d5fd03474539f1124d6215c02b35925d31723018e367df901da7705453195" class="text-sm font-mono border border-gray-300 rounded px-2 py-1 w-44" />
+          <button onclick="testApiKey()" class="text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded px-2 py-1">Test</button>
         </div>
       </div>
     </div>
@@ -303,6 +304,32 @@
     // ---- HELPERS ----
     function getApiKey() {
       return document.getElementById('apiKeyInput').value.trim() || apiKey;
+    }
+
+    async function testApiKey() {
+      const key = getApiKey();
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'Testing...';
+      btn.disabled = true;
+      try {
+        const res = await fetch(API_BASE + '/api/credits?apiKey=' + encodeURIComponent(key));
+        const data = await res.json();
+        const creditsDisplay = document.getElementById('creditsDisplay');
+        if (res.ok && data.credits !== undefined) {
+          creditsDisplay.textContent = data.credits;
+          creditsDisplay.className = 'text-lg font-semibold text-green-600';
+        } else {
+          creditsDisplay.textContent = 'Error';
+          creditsDisplay.className = 'text-lg font-semibold text-red-600';
+          alert('API Error: ' + (data.error || data.message || JSON.stringify(data)));
+        }
+      } catch(e) {
+        alert('Network error: ' + e.message);
+      } finally {
+        btn.textContent = original;
+        btn.disabled = false;
+      }
     }
 
     function getUserId() {
