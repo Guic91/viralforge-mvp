@@ -2,7 +2,7 @@
 
 const fastify = require('fastify')({ logger: true });
 const cors = require('@fastify/cors');
-const { adminDb } = require('./firebase');
+const { adminDb, adminFieldValue } = require('./firebase');
 const { randomUUID } = require('crypto');
 
 const PORT = parseInt(process.env.PORT || '3001');
@@ -27,8 +27,8 @@ async function createJobDoc(jobType, userId, inputData) {
     inputData,
     outputUrl: null,
     error: null,
-    createdAt: adminDb.Timestamp.now(),
-    updatedAt: adminDb.Timestamp.now(),
+    createdAt: adminFieldValue.serverTimestamp(),
+    updatedAt: adminFieldValue.serverTimestamp(),
   });
   return jobId;
 }
