@@ -8,7 +8,8 @@ const { randomUUID } = require('crypto');
 const PORT = parseInt(process.env.PORT || '3001');
 const JOBS_COLLECTION = 'viral_jobs';
 
-// ---- HELPERS ----
+// ---- IN-MEMORY JOB STORE (fallback when Firebase unavailable) ----
+const inMemoryJobs = new Map();
 
 function jobTypeToPrefix(type) {
   const map = { hooks: 'hook', abtest: 'ab', 'product-video': 'prod', voiceover: 'vo' };
@@ -18,8 +19,8 @@ function jobTypeToPrefix(type) {
 async function createJobDoc(jobType, userId, inputData) {
   const prefix = jobTypeToPrefix(jobType);
   const jobId = prefix + '_' + randomUUID().slice(0, 12);
-  const docRef = adminDb.collection(JOBS_COLLECTION).doc(jobId);
-  await docRef.set({
+  
+  const jobData = {
     jobId,
     jobType,
     userId,
@@ -27,10 +28,56 @@ async function createJobDoc(jobType, userId, inputData) {
     inputData,
     outputUrl: null,
     error: null,
-    createdAt: adminFieldValue.serverTimestamp(),
-    updatedAt: adminFieldValue.serverTimestamp(),
-  });
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  if (adminDb) {
+    try {
+      const docRef = adminDb.collection(JOBS_COLLECTION).doc(jobId);
+      const ts = adminFieldValue ? adminFieldValue.serverTimestamp() : new Date();
+      await docRef.set({ ...jobData, createdAt: ts, updatedAt: ts });
+    } catch (e) {
+      fastify.log.warn('Firestore write failed, using in-memory:', e.message);
+      inMemoryJobs.set(jobId, jobData);
+    }
+  } else {
+    inMemoryJobs.set(jobId, jobData);
+  }
+  
   return jobId;
+}
+
+async function updateJobStatus(jobId, status, outputUrl, error) {
+  const update = { status, updatedAt: new Date().toISOString() };
+  if (outputUrl) update.outputUrl = outputUrl;
+  if (error) update.error = error;
+  
+  if (adminDb) {
+    try {
+      const docRef = adminDb.collection(JOBS_COLLECTION).doc(jobId);
+      const ts = adminFieldValue ? adminFieldValue.serverTimestamp() : new Date();
+      await docRef.update({ ...update, updatedAt: ts });
+    } catch (e) {
+      const job = inMemoryJobs.get(jobId);
+      if (job) Object.assign(job, update);
+    }
+  } else {
+    const job = inMemoryJobs.get(jobId);
+    if (job) Object.assign(job, update);
+  }
+}
+
+async function getJob(jobId) {
+  if (adminDb) {
+    try {
+      const doc = await adminDb.collection(JOBS_COLLECTION).doc(jobId).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      return inMemoryJobs.get(jobId) || null;
+    }
+  }
+  return inMemoryJobs.get(jobId) || null;
 }
 
 // ---- ROUTES ----
@@ -155,6 +202,14 @@ fastify.post('/api/generate/voiceover', async (req, reply) => {
   });
 
   return { jobId };
+});
+
+// GET /api/poll/:jobId — check job status
+fastify.get('/api/poll/:jobId', async (req, reply) => {
+  const { jobId } = req.params;
+  const job = await getJob(jobId);
+  if (!job) return reply.status(404).send({ error: 'Job not found' });
+  return job;
 });
 
 // ---- START ----
